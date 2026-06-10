@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>惑星吸収ゲーム</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #00000f;
+    display: flex; align-items: center; justify-content: center;
+    height: 100dvh; overflow: hidden;
+    font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    touch-action: none;
+  }
+  #gameWrapper {
+    position: relative; width: 100%; max-width: 480px;
+    height: 100dvh; max-height: 860px; overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 100%; }
+  #ui {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 14px 18px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    pointer-events: none; z-index: 10;
+  }
+  #sizeBar { flex: 1; max-width: 200px; }
+  #sizeLabel { font-size: 11px; letter-spacing: 0.1em; color: rgba(255,255,255,0.45); margin-bottom: 5px; }
+  #sizeTrack { height: 5px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+  #sizeFill {
+    height: 100%; border-radius: 3px; width: 5%;
+    background: linear-gradient(90deg, #6ec6ff, #c77dff);
+    transition: width 0.3s ease;
+  }
+  #scoreBox { text-align: right; }
+  #scoreNum { font-size: 28px; font-weight: 700; color: #fff; line-height: 1; letter-spacing: -1px; }
+  #scoreLabel { font-size: 10px; letter-spacing: 0.12em; color: rgba(255,255,255,0.35); }
+  #rankBadge {
+    position: absolute; top: 54px; left: 18px;
+    font-size: 13px; font-weight: 600; color: #6ec6ff; opacity: 0.9;
+  }
+  .screen {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 20; padding: 2rem;
+  }
+  #startScreen { background: radial-gradient(ellipse at 50% 50%, #080820 0%, #00000f 80%); }
+  .game-title {
+    font-size: 40px; font-weight: 900; letter-spacing: -1px;
+    color: #fff; line-height: 1.15; text-align: center; margin-bottom: 6px;
+  }
+  .game-subtitle { font-size: 12px; letter-spacing: 0.22em; color: rgba(255,255,255,0.35); margin-bottom: 44px; text-align: center; }
+  .planet-deco { font-size: 72px; margin-bottom: 20px; animation: floatAnim 4s ease-in-out infinite; }
+  @keyframes floatAnim {
+    0%,100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-14px) scale(1.05); }
+  }
+  .btn-start {
+    background: linear-gradient(135deg, #6ec6ff, #c77dff);
+    border: none; color: #fff; font-size: 17px; font-weight: 700;
+    letter-spacing: 0.04em; padding: 15px 50px; border-radius: 999px;
+    cursor: pointer; box-shadow: 0 0 40px rgba(110,198,255,0.35);
+    transition: transform 0.12s; margin-bottom: 22px; font-family: inherit;
+  }
+  .btn-start:active { transform: scale(0.96); }
+  .instructions { font-size: 13px; color: rgba(255,255,255,0.32); text-align: center; line-height: 2; }
+  .inst-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
+  .inst-dot { width: 7px; height: 7px; border-radius: 50%; }
+  #gameOverScreen { background: rgba(0,0,15,0.94); backdrop-filter: blur(10px); }
+  #gameOverScreen.hidden, #winScreen.hidden { display: none; }
+  .over-title { font-size: 38px; font-weight: 900; color: #ff4466; margin-bottom: 8px; }
+  .win-title { font-size: 34px; font-weight: 900; color: #c77dff; margin-bottom: 8px; }
+  .over-sub { font-size: 14px; color: rgba(255,255,255,0.45); margin-bottom: 30px; }
+  .final-score { font-size: 64px; font-weight: 900; color: #fff; letter-spacing: -3px; line-height: 1; margin-bottom: 8px; }
+  .final-label { font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.35); margin-bottom: 38px; }
+  #joystickZone { position: absolute; bottom: 0; left: 0; right: 0; height: 50%; z-index: 5; }
+  #joystickBase {
+    position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+    width: 110px; height: 110px; border-radius: 50%;
+    border: 1.5px solid rgba(110,198,255,0.2); background: rgba(110,198,255,0.04);
+    display: none; pointer-events: none;
+  }
+  #joystickKnob {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(110,198,255,0.55); pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="gameWrapper">
+  <canvas id="c"></canvas>
+  <div id="ui">
+    <div id="sizeBar">
+      <div id="sizeLabel">成長度</div>
+      <div id="sizeTrack"><div id="sizeFill"></div></div>
+    </div>
+    <div id="scoreBox">
+      <div id="scoreNum">0</div>
+      <div id="scoreLabel">スコア</div>
+    </div>
+  </div>
+  <div id="rankBadge">🪨 隕石</div>
+
+  <div class="screen" id="startScreen">
+    <div class="planet-deco">🪐</div>
+    <div class="game-title">宇宙の覇者<br>惑星吸収</div>
+    <div class="game-subtitle">COSMIC DOMINATION</div>
+    <button class="btn-start" id="startBtn">ゲームスタート</button>
+    <div class="instructions">
+      <div class="inst-row"><span class="inst-dot" style="background:#6ec6ff"></span>画面下をドラッグして移動</div>
+      <div class="inst-row"><span class="inst-dot" style="background:#a0f080"></span>小さい天体を吸収して成長</div>
+      <div class="inst-row"><span class="inst-dot" style="background:#ff4466"></span>大きい天体から逃げろ</div>
+    </div>
+  </div>
+
+  <div class="screen hidden" id="gameOverScreen">
+    <div class="over-title">吸収された！</div>
+    <div class="over-sub">あなたの星は消滅しました</div>
+    <div class="final-score" id="overScore">0</div>
+    <div class="final-label">スコア</div>
+    <button class="btn-start" id="retryBtn">もう一度</button>
+  </div>
+
+  <div class="screen hidden" id="winScreen">
+    <div class="planet-deco" style="animation-duration:2s">🌌</div>
+    <div class="win-title">宇宙の覇者になった！</div>
+    <div class="over-sub">ブラックホールに進化しました！</div>
+    <div class="final-score" id="winScore">0</div>
+    <div class="final-label">スコア</div>
+    <button class="btn-start" id="winRetryBtn">もう一度遊ぶ</button>
+  </div>
+
+  <div id="joystickZone">
+    <div id="joystickBase"><div id="joystickKnob"></div></div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const wrapper = document.getElementById('gameWrapper');
+
+let W, H;
+function resize() { W = canvas.width = wrapper.clientWidth; H = canvas.height = wrapper.clientHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+let state = 'start', score = 0, bodies = [], particles = [];
+let worldX = 0, worldY = 0, frameCount = 0;
+let stars = [];
+
+const player = {
+  x:0, y:0, vx:0, vy:0,
+  size:18, angle:0, eatCount:0, maxSize:120,
+  color:'#6ec6ff', trail:[], spin:0
+};
+
+const RANKS = [
+  { min:0,   max:22,  label:'🪨 隕石',       color:'#aaa8a0' },
+  { min:22,  max:34,  label:'🌑 小惑星',      color:'#b0c4d8' },
+  { min:34,  max:48,  label:'🌍 地球型惑星',  color:'#4fc3f7' },
+  { min:48,  max:65,  label:'🪐 ガス惑星',    color:'#ffb347' },
+  { min:65,  max:85,  label:'⭐ 恒星',        color:'#ffe066' },
+  { min:85,  max:999, label:'🌑 ブラックホール', color:'#c77dff' },
+];
+function getRank(s) { return RANKS.find(r=>s>=r.min&&s<r.max)||RANKS[RANKS.length-1]; }
+
+// Planet type definitions
+const PLANET_TYPES = [
+  // tiny debris / asteroid — lots of them
+  { minSize:6,  maxSize:14, weight:5,  draw: drawAsteroid },
+  // small rocky
+  { minSize:10, maxSize:22, weight:4,  draw: drawRocky },
+  // icy
+  { minSize:14, maxSize:28, weight:3,  draw: drawIcy },
+  // earth-like
+  { minSize:20, maxSize:42, weight:2,  draw: drawEarth },
+  // gas giant
+  { minSize:38, maxSize:70, weight:1,  draw: drawGasGiant },
+  // star
+  { minSize:55, maxSize:95, weight:0.4, draw: drawStar },
+];
+
+function pickType() {
+  const total = PLANET_TYPES.reduce((a,t)=>a+t.weight,0);
+  let r = Math.random()*total;
+  for (const t of PLANET_TYPES) { r-=t.weight; if(r<=0) return t; }
+  return PLANET_TYPES[0];
+}
+
+// Build star field once
+function buildStars() {
+  stars = [];
+  for (let i=0;i<200;i++) {
+    stars.push({ x:Math.random()*4000-2000, y:Math.random()*4000-2000,
+      r:0.4+Math.random()*1.4, a:0.3+Math.random()*0.7,
+      twinkle:Math.random()*Math.PI*2, ts:0.02+Math.random()*0.03 });
+  }
+}
+buildStars();
+
+function spawnBody() {
+  const spread = 1800;
+  const type = pickType();
+  const baseSize = type.minSize + Math.random()*(type.maxSize-type.minSize);
+  const side = Math.floor(Math.random()*4);
+  const cx=worldX+W/2, cy=worldY+H/2;
+  let x,y;
+  if(side===0){x=cx+(Math.random()-0.5)*spread;y=cy-spread/2;}
+  else if(side===1){x=cx+(Math.random()-0.5)*spread;y=cy+spread/2;}
+  else if(side===2){x=cx-spread/2;y=cy+(Math.random()-0.5)*spread;}
+  else{x=cx+spread/2;y=cy+(Math.random()-0.5)*spread;}
+
+  const sizeMaxSpd = Math.max(0.15, 0.9 - baseSize*0.008);
+  const speed = (0.3+Math.random()*0.6)*sizeMaxSpd;
+  const angle = Math.random()*Math.PI*2;
+
+  // Generate planet-specific palette
+  const hue = Math.floor(Math.random()*360);
+  const color = `hsl(${hue},60%,55%)`;
+  const color2 = `hsl(${(hue+40)%360},50%,35%)`;
+
+  bodies.push({
+    x,y, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed,
+    size:baseSize, color, color2,
+    spin:0, spinSpeed:(Math.random()-0.5)*0.02,
+    alive:true, type,
+    cloudAngle: Math.random()*Math.PI*2,
+    rings: Math.random()>0.5,
+    ringAngle: Math.random()*0.6-0.3,
+    craters: Array.from({length:3},()=>({a:Math.random()*Math.PI*2,d:0.3+Math.random()*0.55,r:0.1+Math.random()*0.2})),
+  });
+}
+
+// ── Drawing helpers ──────────────────────────────────────
+function drawAsteroid(b, isPlayer) {
+  const s=b.size;
+  ctx.save();
+  ctx.rotate(b.spin);
+  // irregular polygon
+  const pts=7, jitter=0.35;
+  ctx.beginPath();
+  for(let i=0;i<pts;i++){
+    const a=(i/pts)*Math.PI*2;
+    const r=s*(0.85+Math.random()*jitter*0.3); // deterministic via seed would be nicer, use fixed
+    const fx=Math.cos(a)*r, fy=Math.sin(a)*r;
+    i===0?ctx.moveTo(fx,fy):ctx.lineTo(fx,fy);
+  }
+  ctx.closePath();
+  const g=ctx.createRadialGradient(-s*0.2,-s*0.2,s*0.05,0,0,s);
+  g.addColorStop(0,'#ccc'); g.addColorStop(1,'#555');
+  ctx.fillStyle=g; ctx.fill();
+  ctx.restore();
+}
+
+// Reusable asteroid with deterministic shape using spin as seed offset
+function drawAsteroidDet(b, isPlayer) {
+  const s=b.size;
+  ctx.save(); ctx.rotate(b.spin);
+  const pts=6;
+  // store shape in body for consistency
+  if(!b._ashape){
+    b._ashape=Array.from({length:pts},()=>0.7+Math.random()*0.55);
+  }
+  ctx.beginPath();
+  for(let i=0;i<pts;i++){
+    const a=(i/pts)*Math.PI*2;
+    const r=s*b._ashape[i];
+    i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r):ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+  }
+  ctx.closePath();
+  const g=ctx.createRadialGradient(-s*0.25,-s*0.25,s*0.05,0,0,s*1.1);
+  g.addColorStop(0,'#d0cdc8'); g.addColorStop(0.5,'#7a7470'); g.addColorStop(1,'#3a3530');
+  ctx.fillStyle=g; ctx.fill();
+  // craters
+  for(const c of b.craters){
+    ctx.beginPath();
+    ctx.arc(Math.cos(c.a)*s*c.d, Math.sin(c.a)*s*c.d, s*c.r*0.7,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawRocky(b, isPlayer) {
+  const s=b.size;
+  ctx.save(); ctx.rotate(b.spin);
+  ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2);
+  const g=ctx.createRadialGradient(-s*0.3,-s*0.3,s*0.1,0,0,s*1.1);
+  g.addColorStop(0,b.color); g.addColorStop(0.6,b.color2); g.addColorStop(1,'#111');
+  ctx.fillStyle=g; ctx.fill();
+  for(const c of b.craters){
+    ctx.beginPath();
+    ctx.arc(Math.cos(c.a)*s*c.d,Math.sin(c.a)*s*c.d,s*c.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fill();
+    ctx.beginPath();
+    ctx.arc(Math.cos(c.a)*s*c.d-s*c.r*0.3,Math.sin(c.a)*s*c.d-s*c.r*0.3,s*c.r*0.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawIcy(b, isPlayer) {
+  const s=b.size;
+  ctx.save(); ctx.rotate(b.spin);
+  ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2);
+  const g=ctx.createRadialGradient(-s*0.35,-s*0.35,s*0.05,0,0,s*1.1);
+  g.addColorStop(0,'#e8f4ff'); g.addColorStop(0.5,'#a8d8f0'); g.addColorStop(1,'#3a6080');
+  ctx.fillStyle=g; ctx.fill();
+  // ice cracks
+  ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=s*0.04;
+  for(let i=0;i<3;i++){
+    const a=b.craters[i].a;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*s*0.1,Math.sin(a)*s*0.1);
+    ctx.lineTo(Math.cos(a+0.5)*s*0.85,Math.sin(a+0.5)*s*0.85);
+    ctx.stroke();
+  }
+  // shine
+  ctx.beginPath(); ctx.arc(-s*0.3,-s*0.3,s*0.25,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawEarth(b, isPlayer) {
+  const s=b.size;
+  ctx.save(); ctx.rotate(b.spin);
+  ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2);
+  const g=ctx.createRadialGradient(-s*0.3,-s*0.3,s*0.05,0,0,s*1.05);
+  g.addColorStop(0,'#5ab8ff'); g.addColorStop(0.45,'#2a7acd'); g.addColorStop(1,'#0a3060');
+  ctx.fillStyle=g; ctx.fill();
+  // continent blobs
+  const ca=b.cloudAngle;
+  const blobs=[{a:ca,r:0.45,rx:0.5,ry:0.38},{a:ca+2.1,r:0.55,rx:0.35,ry:0.42},{a:ca+4.0,r:0.4,rx:0.28,ry:0.35}];
+  for(const bl of blobs){
+    ctx.save(); ctx.rotate(bl.a);
+    ctx.beginPath(); ctx.ellipse(s*bl.r,0,s*bl.rx*0.6,s*bl.ry*0.6,0,0,Math.PI*2);
+    ctx.fillStyle='#4a9a50'; ctx.globalAlpha=0.85; ctx.fill(); ctx.restore();
+  }
+  // clouds
+  ctx.globalAlpha=0.45; ctx.fillStyle='#fff';
+  for(let i=0;i<3;i++){
+    ctx.beginPath();
+    const a=ca+i*2.1+frameCount*0.002;
+    ctx.arc(Math.cos(a)*s*0.6,Math.sin(a)*s*0.6,s*0.2,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // atmosphere rim
+  ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2);
+  ctx.strokeStyle='rgba(100,200,255,0.3)'; ctx.lineWidth=s*0.12; ctx.stroke();
+  ctx.restore();
+}
+
+function drawGasGiant(b, isPlayer) {
+  const s=b.size;
+  ctx.save(); ctx.rotate(b.spin);
+  // clip to circle
+  ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2); ctx.clip();
+  // bands
+  const bands=6;
+  for(let i=0;i<bands;i++){
+    const y=-s+i*(s*2/bands);
+    const hue=parseInt(b.color.slice(4))||30;
+    const lgt=i%2===0?55:38;
+    ctx.fillStyle=`hsl(${hue+i*8},55%,${lgt}%)`;
+    ctx.fillRect(-s,y,s*2,s*2/bands);
+  }
+  // storm spot
+  ctx.beginPath(); ctx.ellipse(s*0.25,s*0.1,s*0.28,s*0.18,0.2,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,180,80,0.55)'; ctx.fill();
+  ctx.restore();
+  // rings
+  if(b.rings){
+    ctx.save(); ctx.scale(1,Math.sin(b.ringAngle+0.4)*0.35+0.1);
+    ctx.beginPath(); ctx.arc(0,0,s*1.55,0,Math.PI*2);
+    ctx.strokeStyle=b.color+'99'; ctx.lineWidth=s*0.22; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,s*1.9,0,Math.PI*2);
+    ctx.strokeStyle=b.color+'44'; ctx.lineWidth=s*0.12; ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawStar(b, isPlayer) {
+  const s=b.size;
+  ctx.save(); ctx.rotate(b.spin);
+  // corona
+  const pulseR=s*(1.25+0.08*Math.sin(frameCount*0.04+b.cloudAngle));
+  const corona=ctx.createRadialGradient(0,0,s*0.7,0,0,pulseR*1.4);
+  corona.addColorStop(0,b.color+'cc'); corona.addColorStop(1,b.color+'00');
+  ctx.beginPath(); ctx.arc(0,0,pulseR*1.4,0,Math.PI*2);
+  ctx.fillStyle=corona; ctx.fill();
+  // surface
+  ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2);
+  const g=ctx.createRadialGradient(-s*0.2,-s*0.2,s*0.05,0,0,s);
+  g.addColorStop(0,'#fffde0'); g.addColorStop(0.4,b.color); g.addColorStop(1,'#c04000');
+  ctx.fillStyle=g; ctx.fill();
+  // solar flares
+  for(let i=0;i<4;i++){
+    const a=b.cloudAngle+i*Math.PI/2+frameCount*0.008;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*s*0.85,Math.sin(a)*s*0.85);
+    ctx.quadraticCurveTo(
+      Math.cos(a+0.4)*s*1.5,Math.sin(a+0.4)*s*1.5,
+      Math.cos(a+0.8)*s*0.9,Math.sin(a+0.8)*s*0.9);
+    ctx.strokeStyle=b.color+'88'; ctx.lineWidth=s*0.07; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawBlackHole(x,y,s,spin) {
+  ctx.save(); ctx.translate(x,y); ctx.rotate(spin);
+  // accretion disk
+  for(let ring=0;ring<3;ring++){
+    const rs=s*(1.4+ring*0.4);
+    ctx.save(); ctx.scale(1,0.28);
+    ctx.beginPath(); ctx.arc(0,0,rs,0,Math.PI*2);
+    const hues=[280,310,260][ring];
+    ctx.strokeStyle=`hsla(${hues},80%,60%,${0.5-ring*0.12})`;
+    ctx.lineWidth=s*(0.35-ring*0.08); ctx.stroke();
+    ctx.restore();
+  }
+  // event horizon
+  ctx.beginPath(); ctx.arc(0,0,s,0,Math.PI*2);
+  ctx.fillStyle='#000'; ctx.fill();
+  // photon ring glow
+  const photon=ctx.createRadialGradient(0,0,s*0.9,0,0,s*1.3);
+  photon.addColorStop(0,'rgba(180,100,255,0.6)');
+  photon.addColorStop(1,'rgba(180,100,255,0)');
+  ctx.beginPath(); ctx.arc(0,0,s*1.3,0,Math.PI*2);
+  ctx.fillStyle=photon; ctx.fill();
+  ctx.restore();
+}
+
+function drawBody(b, isPlayer) {
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  if(isPlayer && getRank(b.size).label.includes('ブラックホール')){
+    drawBlackHole(0,0,b.size,b.spin);
+    ctx.restore(); return;
+  }
+  b.type.draw(b, isPlayer);
+  // player glow ring
+  if(isPlayer){
+    ctx.beginPath(); ctx.arc(0,0,b.size*1.25,0,Math.PI*2);
+    const gl=ctx.createRadialGradient(0,0,b.size*0.8,0,0,b.size*1.4);
+    gl.addColorStop(0,'rgba(110,198,255,0)');
+    gl.addColorStop(1,'rgba(110,198,255,0.18)');
+    ctx.fillStyle=gl; ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── Background ───────────────────────────────────────────
+function drawBackground() {
+  ctx.fillStyle='#00000f'; ctx.fillRect(0,0,W,H);
+  // nebula
+  const nx=W*0.5+Math.sin(frameCount*0.0008)*W*0.1;
+  const ny=H*0.4+Math.cos(frameCount*0.0006)*H*0.08;
+  const neb=ctx.createRadialGradient(nx,ny,10,nx,ny,W*0.7);
+  neb.addColorStop(0,'rgba(60,20,100,0.08)');
+  neb.addColorStop(0.5,'rgba(20,10,60,0.05)');
+  neb.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=neb; ctx.fillRect(0,0,W,H);
+
+  // stars (parallax)
+  for(const s of stars){
+    s.twinkle+=s.ts;
+    const sx=(((s.x-worldX*0.08)%W+W)%W);
+    const sy=(((s.y-worldY*0.08)%H+H)%H);
+    ctx.globalAlpha=s.a*(0.7+0.3*Math.sin(s.twinkle));
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(sx,sy,s.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+// ── Particles ───────────────────────────────────────────
+function spawnParticles(x,y,color,count){
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2, spd=1+Math.random()*5;
+    particles.push({x,y,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+      r:1.5+Math.random()*4,alpha:1,color,sx:x,sy:y});
+  }
+}
+
+// ── Input ───────────────────────────────────────────────
+let touch={active:false,startX:0,startY:0,dx:0,dy:0};
+const jBase=document.getElementById('joystickBase');
+const jKnob=document.getElementById('joystickKnob');
+const JRADIUS=44;
+
+function updateJoystick(){
+  if(!touch.active){jBase.style.display='none';return;}
+  jBase.style.display='block';
+  jBase.style.left=(touch.startX-55)+'px';
+  jBase.style.bottom=(H-touch.startY-55)+'px';
+  jBase.style.transform='none';
+  const len=Math.sqrt(touch.dx*touch.dx+touch.dy*touch.dy);
+  const cl=Math.min(len,JRADIUS);
+  const nx=len>0?touch.dx/len:0, ny=len>0?touch.dy/len:0;
+  jKnob.style.left=(55+nx*cl)+'px'; jKnob.style.top=(55+ny*cl)+'px';
+  jKnob.style.transform='translate(-50%,-50%)';
+}
+
+document.getElementById('joystickZone').addEventListener('touchstart',e=>{
+  if(state!=='playing')return;
+  const t=e.touches[0], rect=wrapper.getBoundingClientRect();
+  touch.active=true; touch.startX=t.clientX-rect.left; touch.startY=t.clientY-rect.top;
+  touch.dx=0; touch.dy=0; e.preventDefault();
+},{passive:false});
+document.getElementById('joystickZone').addEventListener('touchmove',e=>{
+  if(!touch.active)return;
+  const t=e.touches[0],rect=wrapper.getBoundingClientRect();
+  touch.dx=t.clientX-rect.left-touch.startX; touch.dy=t.clientY-rect.top-touch.startY;
+  updateJoystick(); e.preventDefault();
+},{passive:false});
+document.getElementById('joystickZone').addEventListener('touchend',()=>{
+  touch.active=false;touch.dx=0;touch.dy=0;updateJoystick();},{passive:false});
+
+let mouseDown=false;
+document.getElementById('joystickZone').addEventListener('mousedown',e=>{
+  if(state!=='playing')return; mouseDown=true;
+  const rect=wrapper.getBoundingClientRect();
+  touch.active=true; touch.startX=e.clientX-rect.left; touch.startY=e.clientY-rect.top;
+  touch.dx=0; touch.dy=0;
+});
+window.addEventListener('mousemove',e=>{
+  if(!mouseDown)return;
+  const rect=wrapper.getBoundingClientRect();
+  touch.dx=e.clientX-rect.left-touch.startX; touch.dy=e.clientY-rect.top-touch.startY;
+  updateJoystick();
+});
+window.addEventListener('mouseup',()=>{
+  mouseDown=false; touch.active=false; touch.dx=0; touch.dy=0; updateJoystick();});
+
+// ── Game loop ────────────────────────────────────────────
+function gameLoop(){
+  requestAnimationFrame(gameLoop);
+  if(state!=='playing')return;
+  frameCount++;
+
+  // Spawn: target ~35 bodies, weighted toward small
+  const targetCount=35;
+  if(bodies.length<targetCount&&frameCount%30===0) spawnBody();
+  while(bodies.length<20) spawnBody();
+
+  // Player movement
+  const spd=3.2-player.size*0.012, maxSpd=Math.max(1.5,spd);
+  if(touch.active){
+    const len=Math.sqrt(touch.dx*touch.dx+touch.dy*touch.dy);
+    if(len>8){
+      const nx=touch.dx/len, ny=touch.dy/len;
+      const fac=Math.min(len/JRADIUS,1);
+      player.vx+=nx*maxSpd*fac*0.25; player.vy+=ny*maxSpd*fac*0.25;
+    }
+  }
+  player.vx*=0.88; player.vy*=0.88;
+  const pspd=Math.sqrt(player.vx*player.vx+player.vy*player.vy);
+  if(pspd>maxSpd){player.vx=player.vx/pspd*maxSpd;player.vy=player.vy/pspd*maxSpd;}
+  player.x+=player.vx; player.y+=player.vy;
+  player.spin+=0.012;
+  if(Math.abs(player.vx)>0.05||Math.abs(player.vy)>0.05)
+    player.angle=Math.atan2(player.vy,player.vx);
+
+  const WB=900,HB=900;
+  if(player.x<-WB){player.x=-WB;player.vx=Math.abs(player.vx);}
+  if(player.x>WB) {player.x=WB; player.vx=-Math.abs(player.vx);}
+  if(player.y<-HB){player.y=-HB;player.vy=Math.abs(player.vy);}
+  if(player.y>HB) {player.y=HB; player.vy=-Math.abs(player.vy);}
+  worldX=player.x; worldY=player.y;
+
+  for(const b of bodies){
+    if(!b.alive)continue;
+    b.spin+=b.spinSpeed;
+    const dx=player.x-b.x, dy=player.y-b.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    const sizeMaxSpd=Math.max(0.15,0.9-b.size*0.008);
+    if(dist<400){
+      if(b.size>player.size*1.1){
+        const cf=0.022*(1-b.size/250);
+        b.vx+=(dx/dist)*Math.max(0.004,cf);
+        b.vy+=(dy/dist)*Math.max(0.004,cf);
+      } else if(b.size<player.size*0.9){
+        b.vx-=(dx/dist)*0.025; b.vy-=(dy/dist)*0.025;
+      }
+    }
+    b.vx+=(Math.random()-0.5)*0.05; b.vy+=(Math.random()-0.5)*0.05;
+    const bs=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    if(bs>sizeMaxSpd){b.vx=b.vx/bs*sizeMaxSpd;b.vy=b.vy/bs*sizeMaxSpd;}
+    b.x+=b.vx; b.y+=b.vy;
+    const sx=b.x-worldX+W/2, sy=b.y-worldY+H/2;
+    if(sx<-350||sx>W+350||sy<-350||sy>H+350) b.alive=false;
+  }
+  bodies=bodies.filter(b=>b.alive);
+
+  for(const b of bodies){
+    if(!b.alive)continue;
+    const dx=player.x-b.x, dy=player.y-b.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    const combined=player.size*0.88+b.size*0.88;
+    if(dist<combined){
+      if(player.size>b.size*1.05){
+        b.alive=false;
+        score+=Math.ceil(b.size);
+        player.eatCount++;
+        player.size=Math.min(player.maxSize,player.size+b.size*0.18);
+        const sx=b.x-worldX+W/2, sy=b.y-worldY+H/2;
+        spawnParticles(sx,sy,b.color,12);
+        updateHUD();
+        if(player.size>=player.maxSize*0.92){endGame('win');return;}
+      } else if(b.size>player.size*1.05){
+        spawnParticles(W/2,H/2,player.color,20);
+        endGame('over');return;
+      }
+    }
+  }
+
+  for(const p of particles){
+    if(p.vx!==undefined){
+      p.x+=p.vx;p.y+=p.vy;p.vx*=0.93;p.vy*=0.93;
+      p.alpha-=0.02;p.sx=p.x;p.sy=p.y;
+    }
+  }
+  particles=particles.filter(p=>p.alpha>0);
+  draw();
+}
+
+function draw(){
+  drawBackground();
+  ctx.save();
+  ctx.translate(W/2-worldX,H/2-worldY);
+
+  // player trail
+  for(let i=0;i<player.trail.length;i++){
+    const t=player.trail[i];
+    const alpha=(i/player.trail.length)*0.12;
+    ctx.beginPath(); ctx.arc(t.x,t.y,player.size*0.35*(i/player.trail.length),0,Math.PI*2);
+    ctx.fillStyle=`rgba(110,198,255,${alpha})`; ctx.fill();
+  }
+  player.trail.push({x:player.x,y:player.y});
+  if(player.trail.length>14)player.trail.shift();
+
+  // bodies sorted by size
+  const sorted=[...bodies].sort((a,b)=>a.size-b.size);
+  for(const b of sorted){
+    if(!b.alive)continue;
+    // danger aura
+    if(b.size>player.size*1.2){
+      const dx=player.x-b.x,dy=player.y-b.y;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<320){
+        ctx.save(); ctx.globalAlpha=0.08*(1-dist/320);
+        ctx.beginPath(); ctx.arc(b.x,b.y,b.size*2.8,0,Math.PI*2);
+        ctx.fillStyle='#ff4466'; ctx.fill(); ctx.restore();
+      }
+    }
+    drawBody(b,false);
+    // eat indicator
+    if(b.size<player.size*0.85){
+      ctx.save(); ctx.globalAlpha=0.6;
+      ctx.fillStyle='#a0f080';
+      ctx.font=`${Math.max(9,b.size*0.75)}px sans-serif`;
+      ctx.textAlign='center';
+      ctx.fillText('▼',b.x,b.y-b.size-5);
+      ctx.restore();
+    }
+  }
+
+  // draw player
+  const pb={...player, type: getPlayerType(), color: player.color, color2:'#3a3a5a',
+    cloudAngle:frameCount*0.01, rings:player.size>48, ringAngle:0.3,
+    craters:[{a:0.5,d:0.4,r:0.15},{a:2.1,d:0.5,r:0.12},{a:4.2,d:0.35,r:0.18}]};
+  drawBody(pb, true);
+  ctx.restore();
+
+  // particle fx
+  ctx.save();
+  for(const p of particles){
+    if(p.vx!==undefined&&p.sx!==undefined){
+      ctx.globalAlpha=Math.max(0,p.alpha);
+      ctx.beginPath(); ctx.arc(p.sx,p.sy,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.color||'#6ec6ff'; ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function getPlayerType(){
+  const s=player.size;
+  if(s<22) return PLANET_TYPES[1]; // rocky
+  if(s<34) return PLANET_TYPES[2]; // icy
+  if(s<48) return PLANET_TYPES[3]; // earth
+  if(s<65) return PLANET_TYPES[4]; // gas
+  if(s<85) return PLANET_TYPES[5]; // star
+  return {draw:()=>{}}; // black hole handled separately
+}
+
+function updateHUD(){
+  document.getElementById('scoreNum').textContent=score;
+  const pct=((player.size-18)/(player.maxSize*0.92-18))*100;
+  document.getElementById('sizeFill').style.width=Math.max(5,pct)+'%';
+  const rank=getRank(player.size);
+  const badge=document.getElementById('rankBadge');
+  badge.textContent=rank.label; badge.style.color=rank.color;
+  player.color=rank.color;
+}
+
+function startGame(){
+  state='playing'; score=0; bodies=[]; particles=[];
+  player.x=0;player.y=0;player.vx=0;player.vy=0;
+  player.size=18;player.angle=0;player.trail=[];player.color='#b0c4d8';player.spin=0;
+  frameCount=0; worldX=0; worldY=0;
+  touch.active=false;touch.dx=0;touch.dy=0;
+  for(let i=0;i<30;i++) spawnBody(); // more bodies at start
+  document.getElementById('startScreen').style.display='none';
+  document.getElementById('gameOverScreen').classList.add('hidden');
+  document.getElementById('winScreen').classList.add('hidden');
+  document.getElementById('ui').style.display='flex';
+  updateHUD();
+}
+
+function endGame(type){
+  state=type;
+  if(type==='over'){
+    document.getElementById('overScore').textContent=score;
+    document.getElementById('gameOverScreen').classList.remove('hidden');
+  } else {
+    document.getElementById('winScore').textContent=score;
+    document.getElementById('winScreen').classList.remove('hidden');
+  }
+}
+
+document.getElementById('startBtn').addEventListener('click',startGame);
+document.getElementById('retryBtn').addEventListener('click',startGame);
+document.getElementById('winRetryBtn').addEventListener('click',startGame);
+
+gameLoop();
+</script>
+</body>
+</html>

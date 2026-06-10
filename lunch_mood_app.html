@@ -1,0 +1,529 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Dela+Gothic+One&display=swap');
+  
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  
+  #app {
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    background: var(--color-background-primary);
+    padding: 0 0 2rem;
+  }
+  
+  .header {
+    padding: 1.5rem 1.25rem 1rem;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+  
+  .header-title {
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 22px;
+    color: var(--color-text-primary);
+    letter-spacing: -0.5px;
+  }
+  
+  .header-sub {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    padding: 1.25rem 1.25rem 0.5rem;
+  }
+
+  .mood-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 0 1.25rem;
+  }
+
+  .mood-btn {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 14px 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .mood-btn:active { transform: scale(0.97); }
+  
+  .mood-btn.selected {
+    border: 1.5px solid var(--color-border-info);
+    background: var(--color-background-info);
+  }
+  
+  .mood-icon { font-size: 24px; line-height: 1; }
+  .mood-name { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+  .mood-desc { font-size: 11px; color: var(--color-text-secondary); }
+
+  .extra-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 1.25rem;
+    margin-top: 10px;
+  }
+
+  .toggle-pill {
+    flex: 1;
+    background: var(--color-background-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: 999px;
+    padding: 9px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  
+  .toggle-pill.active {
+    background: var(--color-background-primary);
+    border-color: var(--color-border-primary);
+    color: var(--color-text-primary);
+    font-weight: 500;
+  }
+
+  .suggest-btn {
+    margin: 1.5rem 1.25rem 0;
+    width: calc(100% - 2.5rem);
+    padding: 15px;
+    background: var(--color-text-primary);
+    color: var(--color-background-primary);
+    border: none;
+    border-radius: var(--border-radius-lg);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .suggest-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .suggest-btn:active:not(:disabled) { opacity: 0.75; }
+
+  .result-area {
+    margin: 1.5rem 1.25rem 0;
+    display: none;
+  }
+
+  .result-card {
+    background: var(--color-background-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+  }
+
+  .result-top {
+    padding: 1.25rem;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+  
+  .result-tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  
+  .result-name {
+    font-family: 'Dela Gothic One', cursive;
+    font-size: 20px;
+    color: var(--color-text-primary);
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  
+  .result-desc {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+
+  .result-meta {
+    display: flex;
+    gap: 0;
+  }
+
+  .meta-item {
+    flex: 1;
+    padding: 12px;
+    text-align: center;
+    border-right: 0.5px solid var(--color-border-tertiary);
+  }
+  .meta-item:last-child { border-right: none; }
+  
+  .meta-val {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    display: block;
+  }
+  
+  .meta-key {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    margin-top: 2px;
+    display: block;
+    letter-spacing: 0.05em;
+  }
+
+  .alt-list {
+    margin: 1rem 0 0;
+  }
+  
+  .alt-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+    padding: 0 1.25rem;
+  }
+  
+  .alt-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 1.25rem;
+    cursor: pointer;
+    border-top: 0.5px solid var(--color-border-tertiary);
+    transition: background 0.1s;
+  }
+  .alt-item:active { background: var(--color-background-secondary); }
+  
+  .alt-emoji { font-size: 20px; margin-right: 12px; width: 28px; text-align: center; }
+  .alt-info { flex: 1; }
+  .alt-name { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+  .alt-sub { font-size: 12px; color: var(--color-text-secondary); }
+  .alt-arrow { color: var(--color-text-tertiary); font-size: 16px; }
+
+  .retry-btn {
+    margin: 1rem 1.25rem 0;
+    width: calc(100% - 2.5rem);
+    padding: 12px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-lg);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .retry-btn:active { background: var(--color-background-secondary); }
+
+  .loading-overlay {
+    display: none;
+    text-align: center;
+    padding: 2.5rem 1.25rem;
+  }
+  
+  .loading-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--color-text-primary);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  
+  @keyframes bounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+  
+  .loading-text {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+  }
+</style>
+
+<div id="app">
+  <h2 class="sr-only" style="position:absolute;left:-9999px">気分でランチを提案するアプリ</h2>
+  
+  <div class="header">
+    <div class="header-title">🍱 今日のランチ</div>
+    <div class="header-sub">気分を選んで、ぴったりのランチを見つけよう</div>
+  </div>
+
+  <div id="input-section">
+    <div class="section-label">今の気分は？</div>
+    
+    <div class="mood-grid" id="mood-grid">
+      <button class="mood-btn" data-mood="さっぱり" onclick="selectMood(this)">
+        <span class="mood-icon">🥗</span>
+        <span class="mood-name">さっぱり</span>
+        <span class="mood-desc">軽く食べたい</span>
+      </button>
+      <button class="mood-btn" data-mood="がっつり" onclick="selectMood(this)">
+        <span class="mood-icon">🍖</span>
+        <span class="mood-name">がっつり</span>
+        <span class="mood-desc">しっかり食べたい</span>
+      </button>
+      <button class="mood-btn" data-mood="ほっこり" onclick="selectMood(this)">
+        <span class="mood-icon">🍜</span>
+        <span class="mood-name">ほっこり</span>
+        <span class="mood-desc">温まりたい</span>
+      </button>
+      <button class="mood-btn" data-mood="おしゃれ" onclick="selectMood(this)">
+        <span class="mood-icon">✨</span>
+        <span class="mood-name">おしゃれ</span>
+        <span class="mood-desc">気分を上げたい</span>
+      </button>
+      <button class="mood-btn" data-mood="スタミナ" onclick="selectMood(this)">
+        <span class="mood-icon">⚡</span>
+        <span class="mood-name">スタミナ</span>
+        <span class="mood-desc">午後も頑張れる</span>
+      </button>
+      <button class="mood-btn" data-mood="癒やし" onclick="selectMood(this)">
+        <span class="mood-icon">🌸</span>
+        <span class="mood-name">癒やし</span>
+        <span class="mood-desc">ゆっくりしたい</span>
+      </button>
+    </div>
+
+    <div class="section-label" style="margin-top: 1rem;">こだわり（複数可）</div>
+    <div class="extra-row" id="pref-row">
+      <button class="toggle-pill" data-pref="お手頃" onclick="togglePref(this)">💰 お手頃</button>
+      <button class="toggle-pill" data-pref="ヘルシー" onclick="togglePref(this)">🌿 ヘルシー</button>
+      <button class="toggle-pill" data-pref="スピード" onclick="togglePref(this)">⏱ 時短</button>
+    </div>
+
+    <button class="suggest-btn" id="suggest-btn" onclick="getSuggestion()" disabled>
+      ランチを提案してもらう ↗
+    </button>
+  </div>
+
+  <div class="loading-overlay" id="loading">
+    <div class="loading-dots">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>
+    <div class="loading-text" id="loading-text">気分に合ったランチを探しています…</div>
+  </div>
+
+  <div class="result-area" id="result-area">
+    <div class="result-card" id="main-result"></div>
+    <div class="alt-list" id="alt-list"></div>
+    <button class="retry-btn" onclick="resetApp()">
+      <i class="ti ti-refresh" aria-hidden="true"></i> もう一度選び直す
+    </button>
+  </div>
+</div>
+
+<script>
+const LUNCH_DB = {
+  "さっぱり": {
+    main: { name: "シーザーサラダ定食", emoji: "🥗", desc: "グリルチキンとパリパリレタスのサラダに、スープとご飯がついた軽めの定食。食後もスッキリ！", time: "10分", cal: "450kcal", price: "¥780〜", tag: "サラダ系", color: "#EAF3DE", textColor: "#3B6D11" },
+    alts: [
+      { name: "冷やしうどん", emoji: "🍜", sub: "だしの効いたさっぱり系" },
+      { name: "鯛茶漬け", emoji: "🍚", sub: "ごまだれでさっぱり和食" },
+      { name: "カルパッチョ定食", emoji: "🐟", sub: "魚介の旨みが活きる一品" }
+    ]
+  },
+  "がっつり": {
+    main: { name: "焼肉ライス大盛り", emoji: "🍖", desc: "ジューシーな国産牛カルビと白ご飯のコンビ。スタミナたっぷりでランチ後もパワー全開！", time: "15分", cal: "850kcal", price: "¥1,100〜", tag: "肉系", color: "#FAECE7", textColor: "#993C1D" },
+    alts: [
+      { name: "カツカレー", emoji: "🍛", sub: "ボリューム満点の王道ランチ" },
+      { name: "唐揚げ定食", emoji: "🍗", sub: "ジューシーでサクサクの揚げたて" },
+      { name: "ビーフバーガーセット", emoji: "🍔", sub: "ダブルパティで満腹確定" }
+    ]
+  },
+  "ほっこり": {
+    main: { name: "味噌ラーメン", emoji: "🍜", desc: "濃厚な味噌スープに縮れ麺。チャーシューと煮卵がのった定番の一杯。体の芯から温まります。", time: "12分", cal: "620kcal", price: "¥850〜", tag: "麺類", color: "#FAEEDA", textColor: "#854F0B" },
+    alts: [
+      { name: "肉じゃが定食", emoji: "🥘", sub: "ほくほく和食の代名詞" },
+      { name: "豚汁定食", emoji: "🍲", sub: "体が温まる根菜たっぷり" },
+      { name: "煮込みハンバーグ", emoji: "🍳", sub: "デミグラスソースでほっこり" }
+    ]
+  },
+  "おしゃれ": {
+    main: { name: "アボカドトースト", emoji: "✨", desc: "厚切りトーストにクリーミーなアボカドとポーチドエッグ。フォトジェニックでオシャレなカフェランチ。", time: "8分", cal: "490kcal", price: "¥950〜", tag: "カフェ系", color: "#EEEDFE", textColor: "#534AB7" },
+    alts: [
+      { name: "クロックムッシュ", emoji: "🥪", sub: "パリジャンスタイルのランチ" },
+      { name: "ビストロランチプレート", emoji: "🍽️", sub: "おしゃれプレートで気分UP" },
+      { name: "鮭のキッシュ", emoji: "🥧", sub: "フレンチの定番をカジュアルに" }
+    ]
+  },
+  "スタミナ": {
+    main: { name: "にんにく豚丼", emoji: "⚡", desc: "炒めたにんにくと豚バラが食欲をそそる丼ぶり。甘辛タレが絡んで午後の活力になること間違いなし！", time: "10分", cal: "780kcal", price: "¥780〜", tag: "丼物", color: "#FAEEDA", textColor: "#633806" },
+    alts: [
+      { name: "レバニラ炒め定食", emoji: "🥬", sub: "鉄分たっぷりスタミナ飯" },
+      { name: "マーボー豆腐定食", emoji: "🌶️", sub: "辛さが疲れを吹き飛ばす" },
+      { name: "ステーキ丼", emoji: "🥩", sub: "ガッツリ系の王者" }
+    ]
+  },
+  "癒やし": {
+    main: { name: "和風だしのお茶漬けセット", emoji: "🌸", desc: "ほうじ茶だしがしみわたるお茶漬け。梅干し・しそ・鮭などの具材でほっと一息つける癒やしランチ。", time: "5分", cal: "380kcal", price: "¥680〜", tag: "和食", color: "#FBEAF0", textColor: "#993556" },
+    alts: [
+      { name: "豆腐チゲ定食", emoji: "🍲", sub: "まろやかな辛さで心も温まる" },
+      { name: "親子丼", emoji: "🍳", sub: "ふわとろ玉子の優しい味" },
+      { name: "カフェのサンドイッチセット", emoji: "🥪", sub: "ゆったりランチタイムに" }
+    ]
+  }
+};
+
+const PREF_MODIFIERS = {
+  "お手頃": { priceLabel: "¥〜700台", note: "コスパ重視でチョイス！" },
+  "ヘルシー": { calLabel: "カロリー控えめ", note: "バランス良く食べよう" },
+  "スピード": { timeLabel: "〜10分", note: "サクッと食べて午後も充実" }
+};
+
+let selectedMood = null;
+let selectedPrefs = new Set();
+
+function selectMood(btn) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedMood = btn.dataset.mood;
+  updateBtn();
+}
+
+function togglePref(btn) {
+  const pref = btn.dataset.pref;
+  if (selectedPrefs.has(pref)) {
+    selectedPrefs.delete(pref);
+    btn.classList.remove('active');
+  } else {
+    selectedPrefs.add(pref);
+    btn.classList.add('active');
+  }
+}
+
+function updateBtn() {
+  document.getElementById('suggest-btn').disabled = !selectedMood;
+}
+
+function getSuggestion() {
+  if (!selectedMood) return;
+  
+  document.getElementById('input-section').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+  
+  const messages = [
+    "気分に合ったランチを探しています…",
+    "メニューをカスタマイズ中…",
+    "おいしいランチが見つかりました！"
+  ];
+  let i = 0;
+  const lt = document.getElementById('loading-text');
+  const interval = setInterval(() => {
+    i++;
+    if (i < messages.length) lt.textContent = messages[i];
+  }, 500);
+  
+  setTimeout(() => {
+    clearInterval(interval);
+    showResult();
+  }, 1500);
+}
+
+function showResult() {
+  document.getElementById('loading').style.display = 'none';
+  
+  const data = LUNCH_DB[selectedMood];
+  const m = data.main;
+  const prefs = [...selectedPrefs];
+  
+  let priceVal = m.price;
+  let calVal = m.cal;
+  let timeVal = m.time;
+  let note = `${selectedMood}な気分にぴったりの一品です`;
+  
+  prefs.forEach(p => {
+    const mod = PREF_MODIFIERS[p];
+    if (mod.priceLabel) priceVal = mod.priceLabel;
+    if (mod.calLabel) calVal = mod.calLabel;
+    if (mod.timeLabel) timeVal = mod.timeLabel;
+    if (mod.note) note = mod.note;
+  });
+  
+  const prefBadges = prefs.map(p => `<span style="font-size:11px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:999px;padding:2px 8px;margin-right:4px;color:var(--color-text-secondary)">${p}</span>`).join('');
+  
+  document.getElementById('main-result').innerHTML = `
+    <div class="result-top">
+      <span class="result-tag" style="background:${m.color};color:${m.textColor}">${m.tag}</span>
+      ${prefBadges ? `<div style="margin-bottom:8px">${prefBadges}</div>` : ''}
+      <div class="result-name">${m.emoji} ${m.name}</div>
+      <div class="result-desc">${m.desc}</div>
+      <div style="margin-top:8px;font-size:12px;color:var(--color-text-tertiary)">${note}</div>
+    </div>
+    <div class="result-meta">
+      <div class="meta-item">
+        <span class="meta-val">${timeVal}</span>
+        <span class="meta-key">待ち時間</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-val">${calVal}</span>
+        <span class="meta-key">カロリー</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-val">${priceVal}</span>
+        <span class="meta-key">目安</span>
+      </div>
+    </div>
+  `;
+  
+  let altHTML = `<div class="alt-label">他のおすすめ</div>`;
+  data.alts.forEach(a => {
+    altHTML += `
+      <div class="alt-item" onclick="selectAlt('${a.name}', '${a.sub}')">
+        <span class="alt-emoji">${a.emoji}</span>
+        <div class="alt-info">
+          <div class="alt-name">${a.name}</div>
+          <div class="alt-sub">${a.sub}</div>
+        </div>
+        <i class="ti ti-chevron-right alt-arrow" aria-hidden="true"></i>
+      </div>
+    `;
+  });
+  
+  document.getElementById('alt-list').innerHTML = altHTML;
+  document.getElementById('result-area').style.display = 'block';
+}
+
+function selectAlt(name, sub) {
+  const mainResult = document.getElementById('main-result');
+  const top = mainResult.querySelector('.result-top');
+  const nameEl = top.querySelector('.result-name');
+  const descEl = top.querySelector('.result-desc');
+  nameEl.textContent = name;
+  descEl.textContent = sub + '。気分転換にぴったりの一品です！';
+  mainResult.style.transition = 'opacity 0.2s';
+  mainResult.style.opacity = '0.5';
+  setTimeout(() => { mainResult.style.opacity = '1'; }, 200);
+}
+
+function resetApp() {
+  selectedMood = null;
+  selectedPrefs = new Set();
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('.toggle-pill').forEach(b => b.classList.remove('active'));
+  document.getElementById('suggest-btn').disabled = true;
+  document.getElementById('result-area').style.display = 'none';
+  document.getElementById('input-section').style.display = 'block';
+  window.scrollTo(0, 0);
+}
+</script>
